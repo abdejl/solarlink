@@ -350,7 +350,48 @@
         
         // --- AUTHENTICATION & USER SESSION ---
         function switchAuthTab(mode) { appState.authMode = mode; const T = translations[appState.currentLang]; const signInTab = document.getElementById('signInTab'); const signUpTab = document.getElementById('signUpTab'); const signInFields = document.getElementById('signInFields'); const signUpFields = document.getElementById('signUpFields'); const submitBtn = document.getElementById('authSubmitBtn'); document.querySelectorAll('#signInFields input').forEach(i => i.required = (mode === 'signIn')); document.querySelectorAll('#signUpFields input').forEach(i => i.required = (mode === 'signUp')); if (mode === 'signIn') { signInTab.classList.add('active'); signUpTab.classList.remove('active'); signInFields.classList.remove('hidden'); signUpFields.classList.add('hidden'); submitBtn.setAttribute('data-translate-key', 'signIn'); submitBtn.textContent = T.signIn; } else { signInTab.classList.remove('active'); signUpTab.classList.add('active'); signInFields.classList.add('hidden'); signUpFields.classList.remove('hidden'); submitBtn.setAttribute('data-translate-key', 'signUp'); submitBtn.textContent = T.signUp; } }
-        function handleAuth(event) { event.preventDefault(); let user; if (appState.authMode === 'signIn') { user = { email: document.getElementById('signInEmail').value }; } else { user = { name: document.getElementById('signUpName').value, email: document.getElementById('signUpEmail').value, dob: document.getElementById('signUpDob').value }; } appState.currentUser = user; localStorage.setItem('solarlinkUser', JSON.stringify(appState.currentUser)); closeModal('authModal'); renderHeader(); const saveBtn = document.getElementById('saveProjectBtn'); if (saveBtn && saveBtn.style.display !== 'none') { saveProject(); } }
+        async function handleAuth(event) {
+  event.preventDefault();
+
+  const isSignIn = appState.authMode === 'signIn';
+
+  const email = isSignIn
+    ? document.getElementById('signInEmail').value
+    : document.getElementById('signUpEmail').value;
+
+  const password = isSignIn
+    ? document.getElementById('signInPassword').value
+    : document.getElementById('signUpPassword').value;
+
+  try {
+    let userCredential;
+
+    if (isSignIn) {
+      userCredential = await window.firebaseAuth.signInWithEmailAndPassword(email, password);
+    } else {
+      userCredential = await window.firebaseAuth.createUserWithEmailAndPassword(email, password);
+
+      const name = document.getElementById('signUpName').value;
+      const dob = document.getElementById('signUpDob').value;
+
+      // Save extra info to Firestore
+      await window.firebaseDB
+        .collection('users')
+        .doc(userCredential.user.uid)
+        .set({ name, email, dob });
+    }
+
+    const user = userCredential.user;
+    appState.currentUser = { email: user.email, uid: user.uid };
+    localStorage.setItem('solarlinkUser', JSON.stringify(appState.currentUser));
+    closeModal('authModal');
+    renderHeader();
+
+  } catch (error) {
+    alert("❌ Authentication failed: " + error.message);
+  }
+}
+
         function handlePartnerLogin(event) { event.preventDefault(); const email = document.getElementById('partnerEmail').value; const password = document.getElementById('partnerPassword').value; if (email && password) { appState.currentPartner = solarCompanies[0]; closeModal('partnerLoginModal'); showScreen('partnerDashboardScreen'); } }
         function logout() { appState.currentUser = null; appState.currentPartner = null; appState.projects = []; localStorage.removeItem('solarlinkUser'); localStorage.removeItem('solarlinkProjects'); renderHeader(); showScreen('welcomeScreen'); }
         function checkUserSession() { const user = localStorage.getItem('solarlinkUser'); if (user) { appState.currentUser = JSON.parse(user); const projects = localStorage.getItem('solarlinkProjects'); if (projects) { appState.projects = JSON.parse(projects); } } setInitialTheme(); }
@@ -396,5 +437,31 @@
         async function getEnergySavingTips() { const T = translations[appState.currentLang]; const tipsContainer = document.getElementById('aiTipsResult'); const tipsBtn = document.getElementById('getAiTipsBtn'); tipsContainer.style.display = 'block'; tipsContainer.innerHTML = `<div class="flex items-center justify-center"><div class="spinner"></div><p class="ml-4">${T.generatingAiTips}</p></div>`; tipsBtn.disabled = true; const { location, monthlyBill } = appState.lastFormInput; const languageName = {'en': 'English', 'fr': 'French', 'ar': 'Arabic'}[appState.currentLang]; const prompt = `I am considering installing a solar power system in ${location}. My monthly electricity bill is about $${monthlyBill}. Please provide 3 simple, actionable, and high-impact energy-saving tips for a household to reduce electricity consumption before installing solar panels. The response must be in ${languageName}. Format the response as an HTML unordered list (\`<ul>\`). Each tip should be in a list item (\`<li>\`) with a bolded title followed by a brief explanation. Do not include markdown formatting like \`\`\`html in your response.`; try { const generatedText = await callGemini(prompt); const cleanedHtml = generatedText.replace(/^\`\`\`html\s*/, '').replace(/\`\`\`\s*$/, ''); tipsContainer.innerHTML = `<h4 class="font-bold text-lg mb-2 text-blue-800 dark:text-blue-400">${T.personalizedTipsTitle}</h4><div class="text-left">${cleanedHtml}</div>`; } catch(error) { console.error("Error fetching saving tips:", error); tipsContainer.innerHTML = `<p class="text-red-500">${T.aiTipsError}<br><small>${error.message}</small></p>`; } finally { tipsBtn.disabled = false; } }
 
     </script>
+    <script type="module">
+  // Load Firebase modules from CDN
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+  // Your Firebase project config
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7K0w-z5U5kamH9IJLRLRS_Df2KX0AKss",
+    authDomain: "solarlink-38bc2.firebaseapp.com",
+    projectId: "solarlink-38bc2",
+    storageBucket: "solarlink-38bc2.appspot.com",
+    messagingSenderId: "304335760492",
+    appId: "1:304335760492:web:9f0161fd5b638860337c49"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Store in global variables so we can use them later
+  window.firebaseAuth = auth;
+  window.firebaseDB = db;
+</script>
+
 </body>
 </html>
