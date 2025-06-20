@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolarLink - AI-Powered Solar Solutions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Set initial theme from localStorage
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            @apply bg-gray-100 text-gray-800;
+        }
+        .dark body {
+            @apply bg-gray-900 text-gray-200;
+        }
+        .screen { display: none; }
+        .active-screen { display: flex; }
+        .btn-hover-effect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+        #authModal, #aiEmailModal, #chat-container, #partnerLoginModal { transition: opacity 0.3s ease, transform 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4CAF50;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .lang-dropdown-content { transition: opacity 0.2s, transform 0.2s; }
+        .back-button .icon { display: none; }
+        html[dir="ltr"] .back-button .ltr-icon { display: inline-block; margin-right: 0.5rem; }
+        html[dir="rtl"] .back-button .rtl-icon { display: inline-block; margin-left: 0.5rem; }
+        .stat-card {
+             @apply bg-gray-50 dark:bg-gray-800 border-l-4 border-yellow-400 p-4 rounded-lg text-center;
+        }
+        .auth-tab {
+            cursor: pointer;
+            padding: 0.75rem 1rem;
+            @apply text-gray-500 border-b-2 border-transparent;
+        }
+        .auth-tab.active {
+            @apply text-blue-600 dark:text-blue-400 border-b-blue-600 dark:border-b-blue-400 font-semibold;
+        }
+        /* Progress Tracker Styles */
+        .timeline-step {
+            @apply flex items-center;
+        }
+        .timeline-step .dot {
+            @apply w-4 h-4 rounded-full;
+        }
+        .timeline-step .line {
+            @apply w-full h-0.5;
+        }
+        .timeline-step.completed .dot { @apply bg-green-500; }
+        .timeline-step.completed .line { @apply bg-green-500; }
+        .timeline-step.active .dot { @apply bg-blue-500 ring-4 ring-blue-200 dark:ring-blue-500/50; }
+        .timeline-step.active .label { @apply font-bold text-blue-600 dark:text-blue-400; }
+        .timeline-step:not(.completed) .dot { @apply bg-gray-300 dark:bg-gray-600; }
+        .timeline-step:not(.completed) .line { @apply bg-gray-300 dark:bg-gray-600; }
+        .chart-bar {
+            @apply bg-blue-500 dark:bg-blue-400 rounded-t-sm transition-all duration-300;
+        }
+        /* Chatbot styles */
+        #chat-fab {
+            @apply fixed bottom-6 right-6 w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg cursor-pointer transition-transform hover:scale-110 z-30;
+        }
+        .chat-message { @apply p-3 rounded-lg max-w-xs; }
+        .user-message { @apply bg-blue-500 text-white self-end; }
+        .ai-message { @apply bg-gray-200 dark:bg-gray-700 self-start; }
+    </style>
+</head>
+<body>
+
+    <!-- Header Template -->
+    <div id="header-template" class="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <button onclick="showScreen('welcomeScreen')" class="w-12 h-12 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-md text-gray-700 dark:text-gray-200 hover:bg-white focus:outline-none" aria-label="Home" data-translate-key-aria="homeButtonAriaLabel">
+                <i class="fas fa-home text-xl"></i>
+            </button>
+            <div class="relative">
+                 <button onclick="toggleLangDropdown(event)" class="lang-toggle-btn w-12 h-12 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-md text-gray-700 dark:text-gray-200 hover:bg-white focus:outline-none">
+                    <i class="fas fa-globe text-xl"></i>
+                </button>
+                <div class="lang-dropdown-content absolute ltr:left-0 rtl:right-0 mt-2 w-40 bg-white dark:bg-gray-700 rounded-lg shadow-xl hidden transform opacity-0 scale-95">
+                    <a href="#" onclick="changeLanguage('en', event)" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">English</a>
+                    <a href="#" onclick="changeLanguage('fr', event)" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Français</a>
+                    <a href="#" onclick="changeLanguage('ar', event)" class="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">العربية</a>
+                </div>
+            </div>
+             <button onclick="toggleTheme()" id="theme-toggle" class="w-12 h-12 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-md text-gray-700 dark:text-gray-200 hover:bg-white focus:outline-none">
+                <i class="fas fa-moon"></i>
+                <i class="fas fa-sun"></i>
+            </button>
+             <a href="#" onclick="openModal('partnerLoginModal')" class="hidden sm:inline-block ml-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600" data-translate-key="forPartners">For Business</a>
+        </div>
+        <div class="auth-buttons"></div>
+    </div>
+
+
+    <!-- Screen 1: Welcome Page -->
+    <div id="welcomeScreen" class="screen active-screen flex-col h-screen justify-center items-center p-8 bg-yellow-300 dark:bg-yellow-800 relative">
+        <div class="flex-grow flex flex-col justify-center items-center text-center">
+            <svg class="w-28 h-28 mb-5 text-yellow-500 dark:text-yellow-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clip-rule="evenodd"></path></svg>
+            <h1 class="text-5xl md:text-6xl font-extrabold text-gray-800 dark:text-gray-100" data-translate-key="title">SolarLink</h1>
+            <p class="mt-3 text-lg text-gray-600 dark:text-yellow-200 max-w-md" data-translate-key="slogan">Your bridge to a brighter, cleaner future.</p>
+        </div>
+        <div class="w-full pb-8">
+            <button onclick="showScreen('formScreen')" class="block w-full max-w-sm mx-auto bg-green-500 text-white text-center text-xl font-bold py-4 rounded-full shadow-lg transition-transform duration-200 ease-in-out btn-hover-effect" data-translate-key="getStarted">
+                Get Started
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Input Form -->
+    <div id="formScreen" class="screen flex-col min-h-screen items-center justify-center p-4 pt-24 relative">
+        <div class="w-full max-w-lg mx-auto bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg">
+            <h2 class="text-3xl font-bold text-center mb-2" data-translate-key="getEstimateTitle">Get Your Estimate</h2>
+            <p class="text-center text-gray-500 dark:text-gray-400 mb-8" data-translate-key="tellUsNeeds">Tell us about your needs.</p>
+            <form id="solarForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="mb-4">
+                        <label for="surfaceArea" class="block text-sm font-bold mb-2 text-left" data-translate-key="surfaceAreaLabel">Surface Area (m²)</label>
+                        <input type="number" id="surfaceArea" class="shadow appearance-none border rounded-lg w-full py-3 px-4 leading-tight focus:outline-none focus:ring-2 focus:ring-yellow-400 dark:bg-gray-700 dark:border-gray-600" data-translate-key-placeholder="surfaceAreaPlaceholder" placeholder="e.g., 50" required>
+                    </div>
+                    <div class="mb-4">
+                         <label for="monthlyBill" class="block text-sm font-bold mb-2 text-left" data-translate-key="monthlyBillLabel">Monthly Bill ($)</label>
+                        <input type="number" id="monthlyBill" class="shadow appearance-none border rounded-lg w-full py-3 px-4 leading-tight focus:outline-none focus:ring-2 focus:ring-yellow-400 dark:bg-gray-700 dark:border-gray-600" data-translate-key-placeholder="monthlyBillPlaceholder" placeholder="e.g., 150" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="systemType" class="block text-sm font-bold mb-2 text-left" data-translate-key="systemTypeLabel">Type of System</label>
+                    <select id="systemType" class="shadow border rounded-lg w-full py-3 px-4 leading-tight focus:outline-none focus:ring-2 focus:ring-yellow-400 dark:bg-gray-700 dark:border-gray-600">
+                        <option value="lighting" data-translate-key="lightingOnly">Lighting Only</option>
+                        <option value="full_home" data-translate-key="fullHome">Full Home</option>
+                        <option value="battery_backup" data-translate-key="batteryBackup">Battery Backup</option>
+                        <option value="electric_water_pump" data-translate-key="electricWaterPump">Electric Water Pump</option>
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <label for="location" class="block text-sm font-bold mb-2 text-left" data-translate-key="locationLabel">Your Location</label>
+                    <div class="flex items-center">
+                        <input type="text" id="location" class="shadow appearance-none border rounded-l-lg w-full py-3 px-4 leading-tight focus:outline-none focus:ring-2 focus:ring-yellow-400 dark:bg-gray-700 dark:border-gray-600" data-translate-key-placeholder="locationPlaceholder" placeholder="Enter city or use GPS" required>
+                        <button type="button" onclick="getUserLocation()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-r-lg">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-green-500 text-white text-center text-xl font-bold py-4 rounded-full shadow-lg transition-transform duration-200 ease-in-out btn-hover-effect" data-translate-key="calculateBtn">
+                    Calculate & Find Companies
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Screen 3: Results Page -->
+    <div id="resultsScreen" class="screen flex-col min-h-screen items-center p-4 pt-24 relative">
+        <div class="w-full max-w-4xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                 <button onclick="showScreen('formScreen')" class="back-button bg-white dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 hover:bg-gray-200 font-bold py-2 px-4 rounded-lg inline-flex items-center">
+                    <i class="fas fa-arrow-left icon ltr-icon"></i>
+                    <i class="fas fa-arrow-right icon rtl-icon"></i>
+                    <span data-translate-key="backToForm">Back to Form</span>
+                </button>
+                 <button onclick="saveProject()" id="saveProjectBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg inline-flex items-center btn-hover-effect">
+                    <i class="fas fa-save mr-2"></i>
+                    <span data-translate-key="saveProject">Save Project</span>
+                </button>
+            </div>
+            
+            <div class="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg mb-8">
+                <h2 class="text-3xl font-bold mb-4" data-translate-key="savingsTitle">Estimated Savings</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="stat-card"><p class="text-sm font-semibold text-gray-500 dark:text-gray-400" data-translate-key="monthlySavings">MONTHLY</p><p id="monthlySavings" class="text-2xl font-extrabold text-green-600 dark:text-green-400">$0</p></div>
+                    <div class="stat-card"><p class="text-sm font-semibold text-gray-500 dark:text-gray-400" data-translate-key="tenYearSavings">10 YEARS</p><p id="tenYearSavings" class="text-2xl font-extrabold text-green-600 dark:text-green-400">$0</p></div>
+                    <div class="stat-card"><p class="text-sm font-semibold text-gray-500 dark:text-gray-400" data-translate-key="twentyYearSavings">20 YEARS</p><p id="twentyYearSavings" class="text-2xl font-extrabold text-green-600 dark:text-green-400">$0</p></div>
+                </div>
+                 <div class="mt-6 text-center text-gray-600 dark:text-gray-300">
+                    <p><i class="fas fa-leaf mr-2 text-green-500"></i><span data-translate-key="co2Savings"></span> <strong id="co2Savings" class="text-green-600 dark:text-green-400"></strong>!</p>
+                </div>
+            </div>
+
+            <div id="costEstimatorResult" class="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg mb-8">
+                <h2 class="text-3xl font-bold mb-4" data-translate-key="estimatedCostTitle">Estimated Cost</h2>
+                <div id="costBreakdown"></div>
+                <div class="mt-6 text-center">
+                    <button id="getAiTipsBtn" onclick="getEnergySavingTips()" class="bg-blue-500 text-white font-bold py-3 px-6 rounded-full shadow-md hover:bg-blue-600 transition-colors duration-200 btn-hover-effect">
+                        ✨ <span data-translate-key="getAiTips">Get AI Savings Tips</span>
+                    </button>
+                </div>
+                <div id="aiTipsResult" class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-lg" style="display: none;"></div>
+            </div>
+
+            <div id="nearbyCompanies" class="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg">
+                 <h2 class="text-3xl font-bold mb-6" data-translate-key="nearbyInstallersTitle">Nearby Solar Installers</h2>
+                 <div id="companyList" class="space-y-4"></div>
+            </div>
+        </div>
+         <div class="py-8"></div>
+    </div>
+    
+    <!-- Screen 4: My Projects Dashboard -->
+    <div id="dashboardScreen" class="screen flex-col min-h-screen items-center p-4 pt-24 relative">
+        <div class="w-full max-w-4xl mx-auto">
+             <h2 class="text-3xl font-bold mb-6" data-translate-key="myProjectsTitle">My Saved Projects</h2>
+             <div id="projectList" class="space-y-6"></div>
+        </div>
+    </div>
+    
+    <!-- Screen 5: Installer Profile -->
+    <div id="installerProfileScreen" class="screen flex-col min-h-screen items-center p-4 pt-24 relative">
+        <div id="installerProfileContent" class="w-full max-w-4xl mx-auto"></div>
+    </div>
+
+    <!-- Screen 6: Partner Dashboard -->
+    <div id="partnerDashboardScreen" class="screen flex-col min-h-screen items-center p-4 pt-24 relative">
+        <div id="partnerDashboardContent" class="w-full max-w-6xl mx-auto"></div>
+    </div>
+
+    <!-- Chatbot Floating Action Button -->
+    <div id="chat-fab" onclick="toggleChat()">
+        <i class="fas fa-comment-dots text-2xl"></i>
+    </div>
+
+    <!-- Chatbot Window -->
+    <div id="chat-container" class="hidden fixed bottom-24 right-6 w-full max-w-sm h-auto max-h-[70vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col transform opacity-0 scale-95 origin-bottom-right z-40">
+        <div class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+            <h3 class="font-bold" data-translate-key="aiAssistantTitle">✨ AI Solar Assistant</h3>
+            <button onclick="toggleChat()" class="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">&times;</button>
+        </div>
+        <div id="chat-messages" class="flex-1 p-4 space-y-4 overflow-y-auto">
+            <!-- Messages will be injected here -->
+        </div>
+        <div class="p-4 border-t dark:border-gray-700">
+            <form id="chat-form" onsubmit="handleChatSubmit(event)" class="flex items-center gap-2">
+                <input type="text" id="chat-input" class="flex-1 dark:bg-gray-700 dark:border-gray-600 shadow-sm appearance-none border rounded-full w-full py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500" data-translate-key-placeholder="typeMessagePlaceholder" placeholder="Type your message...">
+                <button type="submit" class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Modals -->
+    <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden" onclick="closeModal('authModal')">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform scale-95" onclick="event.stopPropagation()">
+            <div class="p-8">
+                <div class="flex border-b dark:border-gray-600 mb-6">
+                    <div id="signInTab" class="auth-tab active" onclick="switchAuthTab('signIn')"><span data-translate-key="signIn">Sign In</span></div>
+                    <div id="signUpTab" class="auth-tab" onclick="switchAuthTab('signUp')"><span data-translate-key="signUp">Sign Up</span></div>
+                </div>
+                <form id="authForm" onsubmit="handleAuth(event)">
+                    <div id="signInFields">
+                         <div class="mb-4"><label for="signInEmail" class="block text-sm font-bold mb-2" data-translate-key="emailLabel">Email Address</label><input type="email" id="signInEmail" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400" required></div>
+                         <div class="mb-6"><label for="signInPassword" class="block text-sm font-bold mb-2" data-translate-key="passwordLabel">Password</label><input type="password" id="signInPassword" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400" required></div>
+                    </div>
+                    <div id="signUpFields" class="hidden">
+                        <div class="mb-4"><label for="signUpName" class="block text-sm font-bold mb-2" data-translate-key="nameLabel">Full Name</label><input type="text" id="signUpName" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400"></div>
+                        <div class="mb-4"><label for="signUpEmail" class="block text-sm font-bold mb-2" data-translate-key="emailLabel">Email Address</label><input type="email" id="signUpEmail" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400"></div>
+                        <div class="mb-4"><label for="signUpDob" class="block text-sm font-bold mb-2" data-translate-key="dobLabel">Date of Birth</label><input type="date" id="signUpDob" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400"></div>
+                         <div class="mb-6"><label for="signUpPassword" class="block text-sm font-bold mb-2" data-translate-key="passwordLabel">Password</label><input type="password" id="signUpPassword" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400"></div>
+                    </div>
+                    <button id="authSubmitBtn" type="submit" class="w-full bg-green-500 text-white text-center text-xl font-bold py-3 rounded-full shadow-lg btn-hover-effect" data-translate-key="signIn">Sign In</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="partnerLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden" onclick="closeModal('partnerLoginModal')">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md transform scale-95" onclick="event.stopPropagation()">
+            <div class="p-8">
+                <h2 class="text-2xl font-bold text-center mb-6" data-translate-key="partnerLoginTitle">Partner Sign In</h2>
+                <form id="partnerLoginForm" onsubmit="handlePartnerLogin(event)">
+                     <div class="mb-4"><label for="partnerEmail" class="block text-sm font-bold mb-2" data-translate-key="emailLabel">Email Address</label><input type="email" id="partnerEmail" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400" required></div>
+                     <div class="mb-6"><label for="partnerPassword" class="block text-sm font-bold mb-2" data-translate-key="passwordLabel">Password</label><input type="password" id="partnerPassword" class="dark:bg-gray-700 dark:border-gray-600 shadow appearance-none border rounded-lg w-full py-3 px-4 focus:outline-none focus:ring-2 focus:ring-yellow-400" required></div>
+                    <button type="submit" class="w-full bg-blue-600 text-white text-center text-xl font-bold py-3 rounded-full shadow-lg btn-hover-effect" data-translate-key="signInAsPartner">Sign In as Partner</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="aiEmailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden" onclick="closeModal('aiEmailModal')">
+        <div class="modal-content bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl transform scale-95" onclick="event.stopPropagation()">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold" data-translate-key="smartQuoteRequestTitle">✨ Smart Quote Request</h2><button onclick="closeModal('aiEmailModal')" class="text-gray-400 hover:text-gray-600 text-3xl leading-none">&times;</button></div>
+                <div id="modalBody" class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg min-h-[200px] max-h-[60vh] overflow-y-auto"></div>
+                <div id="modalFooter" class="mt-6 text-right space-x-3 hidden">
+                    <button id="copyBtn" class="bg-green-500 text-white font-bold py-2 px-5 rounded-lg hover:bg-green-600 transition-colors"><i class="fas fa-copy mr-2"></i><span data-translate-key="copyText">Copy Text</span></button>
+                    <button onclick="closeModal('aiEmailModal')" class="bg-gray-300 dark:bg-gray-600 dark:text-gray-200 text-gray-800 font-bold py-2 px-5 rounded-lg hover:bg-gray-400 transition-colors" data-translate-key="close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE & DATA ---
+        let appState = { currentLang: 'en', currentUser: null, currentPartner: null, lastFormInput: null, projects: [], authMode: 'signIn', theme: 'light', activeScreenId: 'welcomeScreen', activeProfileId: null };
+        
+        const translations = {
+            en: { trees: "trees", estCostLabel: "Est. Cost", connectedWithLabel: "Connected with", title: "SolarLink", slogan: "Your bridge to a brighter, cleaner future.", getStarted: "Get Started", getEstimateTitle: "Get Your Estimate", tellUsNeeds: "Tell us about your needs.", surfaceAreaLabel: "Surface Area (m²)", surfaceAreaPlaceholder: "e.g., 50", monthlyBillLabel: "Monthly Bill ($)", monthlyBillPlaceholder: "e.g., 150", systemTypeLabel: "Type of System", lightingOnly: "Lighting Only", fullHome: "Full Home", batteryBackup: "Battery Backup", electricWaterPump: "Electric Water Pump", locationLabel: "Your Location", locationPlaceholder: "Enter city or use GPS", calculateBtn: "Calculate & Find Companies", backToForm: "Back to Form", saveProject: "Save Project", projectSaved: "Project Saved!", estimatedCostTitle: "Estimated Cost", getAiTips: "Get AI Savings Tips", nearbyInstallersTitle: "Nearby Solar Installers", smartQuoteRequestTitle: "✨ Smart Quote Request", copyText: "Copy Text", close: "Close", breakdownTitle: "Cost Breakdown:", baseCostLabel: "Base cost", totalLabel: "Total:", kmAway: "km away", contactNow: "✨ Generate Smart Quote Request", findingCompanies: "Finding nearby companies...", locationError: "Could not find location.", fetchingLocation: "Fetching your location...", locationFound: "Location found!", locationNotFound: "Unable to retrieve your location.", geolocationNotSupported: "Geolocation is not supported by your browser.", generatingSmartRequest: "Generating smart request...", smartRequestError: "Could not generate email.", copied: "Copied!", generatingAiTips: "Generating AI tips...", aiTipsError: "Could not fetch AI tips.", personalizedTipsTitle: "Personalized Energy Saving Tips:", savingsTitle: "Estimated Savings", monthlySavings: "MONTHLY", tenYearSavings: "10 YEARS", twentyYearSavings: "20 YEARS", co2Savings: "Your estimated CO₂ reduction is like planting", login: "Log In", signUp: "Sign Up", logout: "Log Out", myProjects: "My Projects", createAccountTitle: "Create an Account to Save", emailLabel: "Email Address", passwordLabel: "Password", myProjectsTitle: "My Saved Projects", noProjects: "You have no saved projects yet. Go calculate an estimate and save it!", viewProject: "View Project", signIn: "Sign In", nameLabel: "Full Name", dobLabel: "Date of Birth", homeButtonAriaLabel: "Go to Home Page", viewProfile: "View Profile", servicesOffered: "Services Offered", portfolio: "Portfolio", customerReviews: "Customer Reviews", connectWithCompany: "Connect & Start Project", projectStatus: "Project Status", requestSent: "Request Sent", siteInspection: "Site Inspection", installation: "Installation", activation: "Activation", forPartners: "For Business", partnerDashboardTitle: "Partner Dashboard", leadAnalyticsTitle: "Lead Analytics", leadsBySource: "Leads by Source", monthlyLeads: "Monthly Leads", recentLeads: "Recent Leads", respondToLead: "Respond", aiAssistantTitle: "✨ AI Solar Assistant", typeMessagePlaceholder: "Type your message...", partnerLoginTitle: "Partner Sign In", signInAsPartner: "Sign In as Partner" },
+            fr: { trees: "arbres", estCostLabel: "Coût est.", connectedWithLabel: "Connecté avec", title: "SolarLink", slogan: "Votre pont vers un avenir plus radieux et plus propre.", getStarted: "Commencer", getEstimateTitle: "Obtenez votre devis", tellUsNeeds: "Parlez-nous de vos besoins.", surfaceAreaLabel: "Surface (m²)", surfaceAreaPlaceholder: "ex: 50", monthlyBillLabel: "Facture mensuelle ($)", monthlyBillPlaceholder: "ex: 150", systemTypeLabel: "Type de système", lightingOnly: "Éclairage seulement", fullHome: "Maison complète", batteryBackup: "Batterie de secours", electricWaterPump: "Pompe à eau électrique", locationLabel: "Votre emplacement", locationPlaceholder: "Entrez la ville ou utilisez le GPS", calculateBtn: "Calculer et trouver des entreprises", backToForm: "Retour", saveProject: "Sauvegarder", projectSaved: "Projet sauvegardé !", estimatedCostTitle: "Coût estimé", getAiTips: "✨ Obtenir des conseils d'IA", nearbyInstallersTitle: "Installateurs solaires à proximité", smartQuoteRequestTitle: "✨ Demande de devis intelligente", copyText: "Copier", close: "Fermer", breakdownTitle: "Détail du coût :", baseCostLabel: "Coût de base", totalLabel: "Total :", kmAway: "km", contactNow: "✨ Générer une demande intelligente", findingCompanies: "Recherche d'entreprises...", locationError: "Impossible de trouver l'emplacement.", fetchingLocation: "Obtention de votre position...", locationFound: "Position trouvée !", locationNotFound: "Impossible de récupérer votre position.", geolocationNotSupported: "Géolocalisation non supportée.", generatingSmartRequest: "Génération de la demande...", smartRequestError: "Erreur de génération d'e-mail.", copied: "Copié !", generatingAiTips: "Génération des conseils...", aiTipsError: "Erreur de génération des conseils.", personalizedTipsTitle: "Conseils d'économie d'énergie :", savingsTitle: "Économies estimées", monthlySavings: "MENSUEL", tenYearSavings: "10 ANS", twentyYearSavings: "20 ANS", co2Savings: "Votre réduction de CO₂ équivaut à planter", login: "Connexion", signUp: "S'inscrire", logout: "Déconnexion", myProjects: "Mes projets", createAccountTitle: "Créer un compte pour sauvegarder", emailLabel: "Adresse e-mail", passwordLabel: "Mot de passe", myProjectsTitle: "Mes projets sauvegardés", noProjects: "Vous n'avez aucun projet sauvegardé.", viewProject: "Voir le projet", signIn: "Se connecter", nameLabel: "Nom complet", dobLabel: "Date de naissance", homeButtonAriaLabel: "Aller à la page d'accueil", viewProfile: "Voir le profil", servicesOffered: "Services proposés", portfolio: "Portfolio", customerReviews: "Avis des clients", connectWithCompany: "Connecter et démarrer le projet", projectStatus: "Statut du projet", requestSent: "Demande envoyée", siteInspection: "Visite du site", installation: "Installation", activation: "Activation", forPartners: "Pour les partenaires", partnerDashboardTitle: "Tableau de bord partenaire", leadAnalyticsTitle: "Analyse des prospects", leadsBySource: "Prospects par source", monthlyLeads: "Prospects mensuels", recentLeads: "Prospects récents", respondToLead: "Répondre", aiAssistantTitle: "✨ Assistant Solaire IA", typeMessagePlaceholder: "Écrivez votre message...", partnerLoginTitle: "Connexion Partenaire", signInAsPartner: "Se connecter en tant que partenaire" },
+            ar: { trees: "أشجار", estCostLabel: "التكلفة التقديرية", connectedWithLabel: "متصل بـ", title: "سولار لينك", slogan: "جسرك نحو مستقبل أكثر إشراقًا ونظافة.", getStarted: "ابدأ الآن", getEstimateTitle: "احصل على تقديرك", tellUsNeeds: "أخبرنا عن احتياجاتك.", surfaceAreaLabel: "المساحة (م²)", surfaceAreaPlaceholder: "مثال: 50", monthlyBillLabel: "الفاتورة الشهرية ($)", monthlyBillPlaceholder: "مثال: 150", systemTypeLabel: "نوع النظام", lightingOnly: "إضاءة فقط", fullHome: "منزل كامل", batteryBackup: "بطارية احتياطية", electricWaterPump: "مضخة مياه كهربائية", locationLabel: "موقعك", locationPlaceholder: "أدخل المدينة أو استخدم GPS", calculateBtn: "احسب وابحث عن الشركات", backToForm: "العودة", saveProject: "حفظ المشروع", projectSaved: "تم حفظ المشروع!", estimatedCostTitle: "التكلفة التقديرية", getAiTips: "✨ احصل على نصائح الذكاء الاصطناعي", nearbyInstallersTitle: "شركات الطاقة الشمسية القريبة", smartQuoteRequestTitle: "✨ طلب تسعير ذكي", copyText: "نسخ", close: "إغلاق", breakdownTitle: "تفاصيل التكلفة:", baseCostLabel: "التكلفة الأساسية", totalLabel: "المجموع:", kmAway: "كم", contactNow: "✨ إنشاء طلب ذكي", findingCompanies: "جارٍ البحث...", locationError: "لم نتمكن من العثور على الموقع.", fetchingLocation: "جاري تحديد موقعك...", locationFound: "تم العثور على الموقع!", locationNotFound: "تعذر تحديد موقعك.", geolocationNotSupported: "المتصفح لا يدعم تحديد الموقع.", generatingSmartRequest: "جاري إنشاء الطلب...", smartRequestError: "خطأ في إنشاء البريد الإلكتروني.", copied: "تم النسخ!", generatingAiTips: "جاري إنشاء النصائح...", aiTipsError: "خطأ في جلب النصائح.", personalizedTipsTitle: "نصائح لتوفير الطاقة:", savingsTitle: "التوفير المقدر", monthlySavings: "شهريا", tenYearSavings: "10 سنوات", twentyYearSavings: "20 سنة", co2Savings: "انخفاض ثاني أكسيد الكربون لديك يعادل زراعة", login: "تسجيل الدخول", signUp: "إنشاء حساب", logout: "تسجيل الخروج", myProjects: "مشاريعي", createAccountTitle: "أنشئ حسابًا للحفظ", emailLabel: "البريد الإلكتروني", passwordLabel: "كلمة المرور", myProjectsTitle: "مشاريعي المحفوظة", noProjects: "ليس لديك أي مشاريع محفوظة حتى الآن.", viewProject: "عرض المشروع", signIn: "تسجيل الدخول", nameLabel: "الاسم الكامل", dobLabel: "تاريخ الميلاد", homeButtonAriaLabel: "اذهب إلى الصفحة الرئيسية", viewProfile: "عرض الملف الشخصي", servicesOffered: "الخدمات المقدمة", portfolio: " معرض الأعمال", customerReviews: "مراجعات العملاء", connectWithCompany: "تواصل وابدأ المشروع", projectStatus: "حالة المشروع", requestSent: "تم إرسال الطلب", siteInspection: "معاينة الموقع", installation: "التركيب", activation: "التفعيل", forPartners: "للشركاء", partnerDashboardTitle: "لوحة تحكم الشريك", leadAnalyticsTitle: "تحليلات العملاء المحتملين", leadsBySource: "العملاء حسب المصدر", monthlyLeads: "العملاء شهريًا", recentLeads: "العملاء الجدد", respondToLead: "رد", aiAssistantTitle: "✨ مساعد الطاقة الشمسية بالذكاء الاصطناعي", typeMessagePlaceholder: "اكتب رسالتك...", partnerLoginTitle: "تسجيل دخول الشريك", signInAsPartner: "تسجيل الدخول كشريك" }
+        };
+        const solarCompanies = [ 
+            { id: 1, name: "SunPower Solutions", phone: "555-123-4567", email: "contact@sunpower.com", location: "Rabat", lat: 34.020882, lon: -6.841650, logo: "https://placehold.co/100x100/FBBF24/333?text=SPS", 
+                translations: {
+                    en: { services: ["Residential Solar", "Commercial Solar", "Battery Storage"], reviews: [{rating: 5, text: "Excellent service!"}, {rating: 4, text: "Good installation team."}] },
+                    fr: { services: ["Solaire résidentiel", "Solaire commercial", "Stockage par batterie"], reviews: [{rating: 5, text: "Service excellent !"}, {rating: 4, text: "Bonne équipe d'installation."}] },
+                    ar: { services: ["الطاقة الشمسية السكنية", "الطاقة الشمسية التجارية", "تخزين البطارية"], reviews: [{rating: 5, text: "خدمة ممتازة!"}, {rating: 4, text: "فريق تركيب جيد."}] }
+                }, portfolio: ["https://placehold.co/600x400/cccccc/ffffff?text=Install+1", "https://placehold.co/600x400/cccccc/ffffff?text=Install+2"] }, 
+            { id: 2, name: "GreenLeaf Energy", phone: "555-987-6543", email: "info@greenleaf.com", location: "Casablanca", lat: 33.573110, lon: -7.589843, logo: "https://placehold.co/100x100/4ADE80/333?text=GLE", 
+                translations: {
+                    en: { services: ["Solar Panel Cleaning", "System Maintenance"], reviews: [{rating: 5, text: "Very professional."}] },
+                    fr: { services: ["Nettoyage de panneaux solaires", "Maintenance du système"], reviews: [{rating: 5, text: "Très professionnel."}] },
+                    ar: { services: ["تنظيف الألواح الشمسية", "صيانة النظام"], reviews: [{rating: 5, text: "محترف جدا."}] }
+                }, portfolio: ["https://placehold.co/600x400/cccccc/ffffff?text=Clean+1"] }, 
+            { id: 3, name: "Atlas Solar", phone: "555-222-3333", email: "sales@atlas-solar.com", location: "Marrakesh", lat: 31.629472, lon: -7.981084, logo: "https://placehold.co/100x100/F87171/333?text=AS", 
+                translations: {
+                    en: { services: ["Residential Solar"], reviews: [{rating: 3, text: "Took longer than expected."}] },
+                    fr: { services: ["Solaire résidentiel"], reviews: [{rating: 3, text: "A pris plus de temps que prévu."}] },
+                    ar: { services: ["الطاقة الشمسية السكنية"], reviews: [{rating: 3, text: "استغرق وقتا أطول من المتوقع."}] }
+                }, portfolio: ["https://placehold.co/600x400/cccccc/ffffff?text=Home+1", "https://placehold.co/600x400/cccccc/ffffff?text=Home+2", "https://placehold.co/600x400/cccccc/ffffff?text=Home+3"] } 
+        ];
+
+        // --- UI, THEME & LANGUAGE FUNCTIONS ---
+        function setInitialTheme() { const isDark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches); appState.theme = isDark ? 'dark' : 'light'; if (isDark) { document.documentElement.classList.add('dark'); } updateThemeIcons(); }
+        function toggleTheme() { const isDark = document.documentElement.classList.toggle('dark'); appState.theme = isDark ? 'dark' : 'light'; localStorage.theme = appState.theme; updateThemeIcons(); }
+        function updateThemeIcons() { const isDark = document.documentElement.classList.contains('dark'); document.querySelectorAll('#theme-toggle').forEach(button => { const moonIcon = button.querySelector('.fa-moon'); const sunIcon = button.querySelector('.fa-sun'); if (moonIcon && sunIcon) { moonIcon.style.display = isDark ? 'none' : 'block'; sunIcon.style.display = isDark ? 'block' : 'none'; } }); }
+        function toggleLangDropdown(event) { event.stopPropagation(); const dropdown = event.currentTarget.nextElementSibling; const isHidden = dropdown.classList.contains('hidden'); document.querySelectorAll(".lang-dropdown-content").forEach(d => d.classList.add("hidden", "opacity-0", "scale-95")); if (isHidden) { dropdown.classList.remove('hidden'); setTimeout(() => dropdown.classList.remove('opacity-0', 'scale-95'), 10); } }
+        function changeLanguage(lang, event) { if (event) event.preventDefault(); appState.currentLang = lang; document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'; applyTranslations(); renderHeader(); refreshDynamicContent(); }
+        function applyTranslations() { const lang = appState.currentLang; document.querySelectorAll('[data-translate-key]').forEach(el => { const key = el.getAttribute('data-translate-key'); if (translations[lang][key]) el.innerHTML = translations[lang][key]; }); document.querySelectorAll('[data-translate-key-placeholder]').forEach(el => { const key = el.getAttribute('data-translate-key-placeholder'); if(translations[lang][key]) el.placeholder = translations[lang][key]; }); document.querySelectorAll('[data-translate-key-aria]').forEach(el => { const key = el.getAttribute('data-translate-key-aria'); if(translations[lang][key]) el.setAttribute('aria-label', translations[lang][key]); }); document.querySelectorAll(".lang-dropdown-content").forEach(d => d.classList.add("hidden", "opacity-0", "scale-95")); }
+        window.addEventListener("click", () => { document.querySelectorAll(".lang-dropdown-content").forEach(d => d.classList.add("hidden", "opacity-0", "scale-95")); });
+        
+        // --- AUTHENTICATION & USER SESSION ---
+        function switchAuthTab(mode) { appState.authMode = mode; const T = translations[appState.currentLang]; const signInTab = document.getElementById('signInTab'); const signUpTab = document.getElementById('signUpTab'); const signInFields = document.getElementById('signInFields'); const signUpFields = document.getElementById('signUpFields'); const submitBtn = document.getElementById('authSubmitBtn'); document.querySelectorAll('#signInFields input').forEach(i => i.required = (mode === 'signIn')); document.querySelectorAll('#signUpFields input').forEach(i => i.required = (mode === 'signUp')); if (mode === 'signIn') { signInTab.classList.add('active'); signUpTab.classList.remove('active'); signInFields.classList.remove('hidden'); signUpFields.classList.add('hidden'); submitBtn.setAttribute('data-translate-key', 'signIn'); submitBtn.textContent = T.signIn; } else { signInTab.classList.remove('active'); signUpTab.classList.add('active'); signInFields.classList.add('hidden'); signUpFields.classList.remove('hidden'); submitBtn.setAttribute('data-translate-key', 'signUp'); submitBtn.textContent = T.signUp; } }
+        function handleAuth(event) { event.preventDefault(); let user; if (appState.authMode === 'signIn') { user = { email: document.getElementById('signInEmail').value }; } else { user = { name: document.getElementById('signUpName').value, email: document.getElementById('signUpEmail').value, dob: document.getElementById('signUpDob').value }; } appState.currentUser = user; localStorage.setItem('solarlinkUser', JSON.stringify(appState.currentUser)); closeModal('authModal'); renderHeader(); const saveBtn = document.getElementById('saveProjectBtn'); if (saveBtn && saveBtn.style.display !== 'none') { saveProject(); } }
+        function handlePartnerLogin(event) { event.preventDefault(); const email = document.getElementById('partnerEmail').value; const password = document.getElementById('partnerPassword').value; if (email && password) { appState.currentPartner = solarCompanies[0]; closeModal('partnerLoginModal'); showScreen('partnerDashboardScreen'); } }
+        function logout() { appState.currentUser = null; appState.currentPartner = null; appState.projects = []; localStorage.removeItem('solarlinkUser'); localStorage.removeItem('solarlinkProjects'); renderHeader(); showScreen('welcomeScreen'); }
+        function checkUserSession() { const user = localStorage.getItem('solarlinkUser'); if (user) { appState.currentUser = JSON.parse(user); const projects = localStorage.getItem('solarlinkProjects'); if (projects) { appState.projects = JSON.parse(projects); } } setInitialTheme(); }
+
+        // --- PROJECT & COMPANY FUNCTIONS ---
+        function saveProject() { if (!appState.currentUser) return openModal('authModal'); if (appState.lastFormInput) { if (appState.projects.some(p => p.id === appState.lastFormInput.id)) return; const newProject = { ...appState.lastFormInput, id: Date.now(), status: 'requestSent', connectedCompany: null }; appState.projects.unshift(newProject); localStorage.setItem('solarlinkProjects', JSON.stringify(appState.projects)); const saveBtn = document.getElementById('saveProjectBtn'); const T = translations[appState.currentLang]; saveBtn.innerHTML = `<i class="fas fa-check mr-2"></i> ${T.projectSaved}`; saveBtn.disabled = true; setTimeout(() => { saveBtn.innerHTML = `<i class="fas fa-save mr-2"></i> ${T.saveProject}`; saveBtn.disabled = false; }, 2500); } }
+        function renderDashboard() { const projectListEl = document.getElementById('projectList'); const T = translations[appState.currentLang]; if (appState.projects.length === 0) return projectListEl.innerHTML = `<div class="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md"><p class="text-gray-500 dark:text-gray-400">${T.noProjects}</p></div>`; projectListEl.innerHTML = appState.projects.map(p => { const { totalCost } = calculateCost(p.surfaceArea, p.systemType); const company = solarCompanies.find(c => c.id === p.connectedCompany); const timelineHTML = p.connectedCompany ? renderTimeline(p.status) : ''; return `<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6"><div class="flex justify-between items-center"><div class="flex-grow"> <p class="font-bold text-lg">${p.location}</p><p class="text-sm text-gray-600 dark:text-gray-400">${p.surfaceArea}m², ${T.estCostLabel}: $${totalCost.toLocaleString()}</p>${company ? `<p class="text-sm text-blue-600 dark:text-blue-400 font-semibold mt-1">${T.connectedWithLabel}: ${company.name}</p>` : ''}</div><button onclick="loadProject(${p.id})" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg btn-hover-effect">${T.viewProject}</button></div>${timelineHTML}</div>` }).join(""); }
+        function loadProject(projectId) { const project = appState.projects.find(p => p.id === projectId); if (project) { appState.lastFormInput = project; showScreen('resultsScreen'); } }
+        function connectWithCompany(companyId) { if (!appState.currentUser) return openModal('authModal'); const projectToUpdate = appState.lastFormInput; if (!projectToUpdate) return; projectToUpdate.connectedCompany = companyId; projectToUpdate.status = 'requestSent'; let existingProject = appState.projects.find(p => p.id === projectToUpdate.id); if (existingProject) { Object.assign(existingProject, projectToUpdate); } else { projectToUpdate.id = Date.now(); appState.projects.unshift(projectToUpdate); } localStorage.setItem('solarlinkProjects', JSON.stringify(appState.projects)); showScreen('dashboardScreen'); }
+        function renderInstallerProfile(companyId) { const company = solarCompanies.find(c => c.id === companyId); if (!company) return; const T = translations[appState.currentLang]; const companyT = company.translations[appState.currentLang]; const contentEl = document.getElementById('installerProfileContent'); contentEl.innerHTML = `<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg"><div class="p-6 md:p-8"><div class="flex flex-col sm:flex-row items-start gap-6"><img src="${company.logo}" alt="${company.name} Logo" class="w-24 h-24 rounded-full border-4 border-gray-200 dark:border-gray-700"><div><h2 class="text-3xl font-bold">${company.name}</h2><p class="text-gray-500 dark:text-gray-400">${company.location}</p><div class="flex items-center mt-2">${Array(5).fill(0).map((_, i) => `<i class="fas fa-star ${i < Math.round(companyT.reviews.reduce((acc, r) => acc + r.rating, 0) / companyT.reviews.length) ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}"></i>`).join('')}</div></div><button onclick="connectWithCompany(${company.id})" class="sm:ml-auto w-full sm:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg btn-hover-effect whitespace-nowrap">${T.connectWithCompany}</button></div></div><div class="p-6 md:p-8 border-t dark:border-gray-700"> <h3 class="text-2xl font-bold mb-4">${T.servicesOffered}</h3><div class="flex flex-wrap gap-2">${companyT.services.map(s => `<span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 text-sm font-medium px-3 py-1 rounded-full">${s}</span>`).join('')}</div></div><div class="p-6 md:p-8 border-t dark:border-gray-700"><h3 class="text-2xl font-bold mb-4">${T.portfolio}</h3><div class="grid grid-cols-2 md:grid-cols-3 gap-4">${company.portfolio.map(p => `<img src="${p}" class="rounded-lg shadow-md w-full h-auto object-cover">`).join('')}</div></div><div class="p-6 md:p-8 border-t dark:border-gray-700"><h3 class="text-2xl font-bold mb-4">${T.customerReviews}</h3><div class="space-y-4">${companyT.reviews.map(r => `<div class="border dark:border-gray-700 p-4 rounded-lg"><div>${Array(5).fill(0).map((_, i) => `<i class="fas fa-star ${i < r.rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}"></i>`).join('')}</div><p class="mt-2 italic">"${r.text}"</p></div>`).join('')}</div></div></div>`; }
+        function showInstallerProfile(companyId) { appState.activeProfileId = companyId; showScreen('installerProfileScreen'); }
+        function renderTimeline(currentStatus) { const T = translations[appState.currentLang]; const stages = ['requestSent', 'siteInspection', 'installation', 'activation']; const currentIndex = stages.indexOf(currentStatus); return `<div class="pt-6 mt-6 border-t dark:border-gray-700"><h4 class="font-bold mb-4">${T.projectStatus}</h4><div class="flex items-center">${stages.map((stage, i) => `<div class="timeline-step flex-1 ${i <= currentIndex ? 'completed' : ''} ${i === currentIndex ? 'active' : ''}"><div class="text-center"><div class="dot mx-auto"></div><p class="label text-xs mt-2">${T[stage]}</p></div>${i < stages.length - 1 ? `<div class="line"></div>` : ''}</div>`).join('')}</div></div>`; }
+        function renderPartnerDashboard() { const T = translations[appState.currentLang]; const partner = appState.currentPartner; const contentEl = document.getElementById('partnerDashboardContent'); if (!partner) return; contentEl.innerHTML = `<h2 class="text-3xl font-bold mb-6">${T.partnerDashboardTitle} - ${partner.name}</h2><div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg"><h3 class="text-2xl font-bold mb-4">${T.leadAnalyticsTitle}</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-700"> <h4 class="font-semibold mb-2">${T.leadsBySource}</h4><div class="space-y-2 text-sm"><div class="flex justify-between"><span>Google</span><span>45%</span></div><div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5"><div class="bg-blue-500 h-2.5 rounded-full" style="width: 45%"></div></div><div class="flex justify-between"><span>Referral</span><span>25%</span></div><div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5"><div class="bg-green-500 h-2.5 rounded-full" style="width: 25%"></div></div><div class="flex justify-between"><span>Direct</span><span>30%</span></div><div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5"><div class="bg-yellow-400 h-2.5 rounded-full" style="width: 30%"></div></div></div></div><div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-700"><h4 class="font-semibold mb-3">${T.monthlyLeads}</h4><div class="flex items-end h-32 space-x-2">${[40,60,50,80,90,70].map(h => `<div class="chart-bar flex-1" style="height: ${h}%"></div>`).join('')}</div></div></div></div><div class="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg"><h3 class="text-2xl font-bold mb-4">${T.recentLeads}</h3><div class="space-y-4">${appState.projects.filter(p=>p.connectedCompany === partner.id || !p.connectedCompany).slice(0, 5).map(p => `<div class="border-b dark:border-gray-700 pb-2"><p class="font-semibold">${p.location}</p><p class="text-sm text-gray-500 dark:text-gray-400">${p.surfaceArea}m² - ${translations[appState.currentLang][p.systemType.replace(/_/g, "")]}</p><button class="text-sm text-blue-500 hover:underline">${T.respondToLead}</button></div>`).join('') || `<p class="text-sm text-gray-500">${T.noProjects}</p>`}</div></div></div>`; }
+
+        // --- DYNAMIC CONTENT & CALCULATIONS ---
+        document.getElementById("solarForm").addEventListener("submit", function (event) { event.preventDefault(); appState.lastFormInput = { surfaceArea: parseFloat(document.getElementById('surfaceArea').value), monthlyBill: parseFloat(document.getElementById('monthlyBill').value), systemType: document.getElementById('systemType').value, location: document.getElementById('location').value }; showScreen('resultsScreen'); });
+        function refreshDynamicContent() { if (!appState.lastFormInput && appState.activeScreenId === 'resultsScreen') return; const screenRenderMap = {'resultsScreen': () => { const { surfaceArea, systemType, location, monthlyBill } = appState.lastFormInput; const costResult = calculateCost(surfaceArea, systemType); displayCost(costResult.breakdown); const savingsResult = calculateSavings(monthlyBill, costResult.totalCost); displaySavings(savingsResult); displayCompanies(location); },'dashboardScreen': renderDashboard,'installerProfileScreen': () => renderInstallerProfile(appState.activeProfileId),'partnerDashboardScreen': renderPartnerDashboard}; if(screenRenderMap[appState.activeScreenId]) screenRenderMap[appState.activeScreenId](); }
+        function calculateCost(surfaceArea, systemType) { const T = translations[appState.currentLang]; const baseRate = 100; let systemCost = 0; let systemTypeName = ''; switch (systemType) { case "lighting": systemCost = 1500; systemTypeName = T.lightingOnly; break; case "full_home": systemCost = 4000; systemTypeName = T.fullHome; break; case "battery_backup": systemCost = 7500; systemTypeName = T.batteryBackup; break; case "electric_water_pump": systemCost = 2500; systemTypeName = T.electricWaterPump; break; } const baseCost = surfaceArea * baseRate; const totalCost = baseCost + systemCost; const breakdown = `<h3 class="font-bold text-lg mb-2">${T.breakdownTitle}</h3><ul><li class="flex justify-between py-1"><span>${T.baseCostLabel} (${surfaceArea}m² @ $${baseRate}/m²):</span> <strong>$${baseCost.toLocaleString()}</strong></li><li class="flex justify-between py-1"><span>${systemTypeName}:</span> <strong>$${systemCost.toLocaleString()}</strong></li><li class="flex justify-between py-2 border-t dark:border-gray-700 mt-2"><span class="font-bold">${T.totalLabel}</span> <strong class="text-lg">$${totalCost.toLocaleString()}</strong></li></ul>`; return { totalCost: totalCost, breakdown: breakdown }; }
+        function displayCost(breakdown) { document.getElementById("costBreakdown").innerHTML = breakdown; }
+        function calculateSavings(monthlyBill, systemCost) { const avgElectricityRate = 0.15; const panelEfficiency = 0.20; const dailySunHours = 4.5; const systemSizeKW = (appState.lastFormInput.surfaceArea / 1.6) * 0.4; const dailyProductionKWH = systemSizeKW * dailySunHours * panelEfficiency * 3.5; const monthlyProductionKWH = dailyProductionKWH * 30; const monthlySavings = Math.min(monthlyBill, monthlyProductionKWH * avgElectricityRate); return { monthly: monthlySavings, tenYear: (monthlySavings * 12 * 10) - (systemCost / 2), twentyYear: (monthlySavings * 12 * 20) - systemCost, co2Reduction: (monthlyProductionKWH * 12 * 0.0007) * 50 }; }
+        function displaySavings({ monthly, tenYear, twentyYear, co2Reduction }) { const T = translations[appState.currentLang]; document.getElementById("monthlySavings").textContent = `$${monthly.toFixed(0)}`; document.getElementById("tenYearSavings").textContent = `$${tenYear.toLocaleString("en-US", { maximumFractionDigits: 0 })}`; document.getElementById("twentyYearSavings").textContent = `$${twentyYear.toLocaleString("en-US", { maximumFractionDigits: 0 })}`; document.querySelector('[data-translate-key="co2Savings"]').textContent = T.co2Savings; document.getElementById("co2Savings").textContent = `${co2Reduction.toFixed(0)} ${T.trees}`; }
+
+        // --- INITIALIZATION & NAVIGATION ---
+        window.onload = () => { checkUserSession(); showScreen('welcomeScreen'); };
+        function showScreen(screenId) { appState.activeScreenId = screenId; document.querySelectorAll(".screen").forEach(s => s.classList.remove('active-screen')); const targetScreen = document.getElementById(screenId); if (targetScreen) { targetScreen.classList.add('active-screen'); const headerTemplate = document.getElementById('header-template'); if (headerTemplate) { const header = headerTemplate.cloneNode(true); header.removeAttribute('id'); const homeButton = header.querySelector('[data-translate-key-aria="homeButtonAriaLabel"]'); if(screenId === 'welcomeScreen' && homeButton) { homeButton.style.visibility = 'hidden'; } const oldHeader = targetScreen.querySelector('.flex.justify-between.items-center'); if (oldHeader) oldHeader.remove(); targetScreen.prepend(header); } renderHeader(); applyTranslations(); refreshDynamicContent(); } }
+        function renderHeader() { const T = translations[appState.currentLang]; const authButtonsContainer = document.querySelector(".active-screen .auth-buttons"); if (!authButtonsContainer) return; if (appState.currentUser) { authButtonsContainer.innerHTML = `<div class="flex items-center space-x-4"><button onclick="showScreen('dashboardScreen')" class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold py-2 px-4 rounded-full shadow hover:bg-gray-200 dark:hover:bg-gray-600">${T.myProjects}</button><button onclick="logout()" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-full shadow hover:bg-red-600">${T.logout}</button></div>`; } else { authButtonsContainer.innerHTML = `<button onclick="openModal('authModal')" class="bg-green-500 text-white font-semibold py-2 px-4 rounded-full shadow btn-hover-effect">${T.signUp}</button>`; } updateThemeIcons(); }
+        function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+        function closeModal(modalId) { document.getElementById(modalId).classList.add('hidden'); }
+        
+        // --- CHATBOT FUNCTIONS ---
+        function toggleChat() { const chatContainer = document.getElementById('chat-container'); const isHidden = chatContainer.classList.contains('hidden'); if(isHidden) { chatContainer.classList.remove('hidden'); setTimeout(() => { chatContainer.classList.remove('opacity-0', 'scale-95'); }, 10); } else { chatContainer.classList.add('opacity-0', 'scale-95'); setTimeout(() => { chatContainer.classList.add('hidden'); }, 300); } }
+        function addChatMessage(message, sender) { const messagesContainer = document.getElementById('chat-messages'); const messageDiv = document.createElement('div'); messageDiv.classList.add('chat-message', sender === 'user' ? 'user-message' : 'ai-message'); messageDiv.textContent = message; messagesContainer.appendChild(messageDiv); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        async function handleChatSubmit(event) { event.preventDefault(); const input = document.getElementById('chat-input'); const message = input.value.trim(); if (!message) return; addChatMessage(message, 'user'); input.value = ''; addChatMessage('...', 'ai'); const response = await getChatbotResponse(message); const lastMessage = document.querySelector('#chat-messages > .chat-message:last-child'); lastMessage.textContent = response; }
+        async function getChatbotResponse(message) { const T = translations[appState.currentLang]; let promptContext = `You are the SolarLink AI Assistant. Answer the user's question about solar energy. Be helpful and concise. Current language: ${T.title === "SolarLink" ? 'English' : 'French'}.`; if (appState.lastFormInput) { promptContext += ` The user is considering a project with these details: ${JSON.stringify(appState.lastFormInput)}.`; } promptContext += ` User's question: "${message}"`; try { const response = await callGemini(promptContext); return response; } catch(error) { return T.aiTipsError; } }
+        
+        // --- OTHER FUNCTIONS ---
+        async function displayCompanies(location) { const T = translations[appState.currentLang]; const companyListEl = document.getElementById("companyList"); companyListEl.innerHTML = `<p class="text-center">${T.findingCompanies}</p>`; try { const userCoords = await getUserCoords(location); solarCompanies.forEach(c => { c.distance = getDistance(userCoords, { lat: c.lat, lon: c.lon }); }); solarCompanies.sort((a, b) => a.distance - b.distance); companyListEl.innerHTML = solarCompanies.map(c => { return `<div class="border dark:border-gray-700 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center"><div class="flex items-center gap-4"><img src="${c.logo}" class="w-16 h-16 rounded-full"><div><h3 class="text-xl font-bold text-green-600 dark:text-green-400">${c.name}</h3><p class="text-gray-500 dark:text-gray-400">${c.location}</p><p class="text-gray-700 dark:text-gray-300 font-semibold mt-1">${c.distance.toFixed(1)} ${T.kmAway}</p></div></div><div class="mt-4 sm:mt-0 flex flex-col items-start sm:items-end space-y-2"><button onclick="showInstallerProfile(${c.id})" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-center transition-colors">${T.viewProfile}</button></div></div>`; }).join(""); } catch (error) { console.error(error); companyListEl.innerHTML = `<p class="text-center text-red-500">${T.locationError}</p>`; } }
+        function getUserLocation() { const T = translations[appState.currentLang]; const locationInput = document.getElementById("location"); const statusEl = document.getElementById("location-status"); if (navigator.geolocation) { statusEl.textContent = T.fetchingLocation; navigator.geolocation.getCurrentPosition( position => { document.getElementById('location').value = "Marrakesh"; statusEl.textContent = T.locationFound; statusEl.style.color = "green"; }, () => { statusEl.textContent = T.locationNotFound; statusEl.style.color = "red"; } ); } else { statusEl.textContent = T.geolocationNotSupported; } }
+        function getDistance(coords1, coords2) { const R = 6371; const dLat = (coords2.lat - coords1.lat) * Math.PI / 180; const dLon = (coords2.lon - coords1.lon) * Math.PI / 180; const a = 0.5 - Math.cos(dLat)/2 + Math.cos(coords1.lat * Math.PI / 180) * Math.cos(coords2.lat * Math.PI / 180) * (1 - Math.cos(dLon)) / 2; return R * 2 * Math.asin(Math.sqrt(a)); }
+        async function getUserCoords(locationString) { const foundCompany = solarCompanies.find(c => c.location.toLowerCase() === locationString.toLowerCase()); if (foundCompany) return { lat: foundCompany.lat, lon: foundCompany.lon }; if (solarCompanies.length > 0) return { lat: solarCompanies[0].lat, lon: solarCompanies[0].lon }; throw new Error("Could not determine coordinates"); }
+        async function callGemini(prompt) { const apiKey = ""; const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`; const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] }; const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(`API call failed with status: ${response.status}`); const result = await response.json(); if (result.candidates && result.candidates[0]?.content?.parts?.[0]) { return result.candidates[0].content.parts[0].text; } else { throw new Error(result.promptFeedback?.blockReason || "Invalid response structure from API."); } }
+        async function generateQuoteEmail(company) { const T = translations[appState.currentLang]; openModal('aiEmailModal'); const modalBody = document.getElementById('modalBody'); const modalFooter = document.getElementById('modalFooter'); modalBody.innerHTML = `<div class="flex items-center justify-center h-full"><div class="spinner"></div><p class="ml-4">${T.generatingSmartRequest}</p></div>`; modalFooter.classList.add('hidden'); const { surfaceArea, systemType, location, monthlyBill } = appState.lastFormInput; const systemTypeText = translations[appState.currentLang][systemType.replace('_', '')] || systemType; const languageName = {'en': 'English', 'fr': 'French', 'ar': 'Arabic'}[appState.currentLang]; const prompt = `Generate a professional and concise email to a solar installation company to request a quote, written in ${languageName}. Include: Location: ${location}, Surface area: ${surfaceArea}m², System type: ${systemTypeText}, Monthly Bill: $${monthlyBill}. I am contacting: ${company.name}. Use placeholders like [My Name] and [My Phone Number] (or the equivalent in the target language). Start with a subject line. Do not include any introductory text before the subject line. Format as plain text.`; try { const generatedText = await callGemini(prompt); modalBody.innerHTML = `<pre class="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">${generatedText}</pre>`; modalFooter.classList.remove('hidden'); document.getElementById('copyBtn').style.display = 'inline-block'; } catch (error) { console.error("Error generating email:", error); modalBody.innerHTML = `<p class="text-red-500 text-center">${T.smartRequestError}<br><small>${error.message}</small></p>`; modalFooter.classList.remove('hidden'); document.getElementById('copyBtn').style.display = 'none'; } }
+        async function getEnergySavingTips() { const T = translations[appState.currentLang]; const tipsContainer = document.getElementById('aiTipsResult'); const tipsBtn = document.getElementById('getAiTipsBtn'); tipsContainer.style.display = 'block'; tipsContainer.innerHTML = `<div class="flex items-center justify-center"><div class="spinner"></div><p class="ml-4">${T.generatingAiTips}</p></div>`; tipsBtn.disabled = true; const { location, monthlyBill } = appState.lastFormInput; const languageName = {'en': 'English', 'fr': 'French', 'ar': 'Arabic'}[appState.currentLang]; const prompt = `I am considering installing a solar power system in ${location}. My monthly electricity bill is about $${monthlyBill}. Please provide 3 simple, actionable, and high-impact energy-saving tips for a household to reduce electricity consumption before installing solar panels. The response must be in ${languageName}. Format the response as an HTML unordered list (\`<ul>\`). Each tip should be in a list item (\`<li>\`) with a bolded title followed by a brief explanation. Do not include markdown formatting like \`\`\`html in your response.`; try { const generatedText = await callGemini(prompt); const cleanedHtml = generatedText.replace(/^\`\`\`html\s*/, '').replace(/\`\`\`\s*$/, ''); tipsContainer.innerHTML = `<h4 class="font-bold text-lg mb-2 text-blue-800 dark:text-blue-400">${T.personalizedTipsTitle}</h4><div class="text-left">${cleanedHtml}</div>`; } catch(error) { console.error("Error fetching saving tips:", error); tipsContainer.innerHTML = `<p class="text-red-500">${T.aiTipsError}<br><small>${error.message}</small></p>`; } finally { tipsBtn.disabled = false; } }
+
+    </script>
+</body>
+</html>
+
